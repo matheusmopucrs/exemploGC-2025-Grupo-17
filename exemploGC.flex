@@ -32,6 +32,24 @@ NL  = \n | \r | \r\n
 {NL}   {yyline++;}
 [ \t]+ { }
 
+/* ---------- OPERADORES COMPOSTOS (PRIMEIRO!) ---------- */
+"+=" { return Parser.PLUSEQ; }
+"-=" { return Parser.MINUSEQ; }
+"*=" { return Parser.MULEQ; }
+"/=" { return Parser.DIVEQ; }
+"%=" { return Parser.MODEQ; }
+"==" { return Parser.EQ; }
+"<=" { return Parser.LEQ; }
+">=" { return Parser.GEQ; }
+"!=" { return Parser.NEQ; }
+"++" { return Parser.INC; }
+"--" { return Parser.DEC; }
+"&&" { return Parser.AND; }
+"||" { return Parser.OR; }
+"?"    { return '?'; }
+":"    { return ':'; }
+
+
 /* operadores */
 
 "+" |
@@ -55,13 +73,6 @@ NL  = \n | \r | \r\n
 {NUM}  { yyparser.yylval = new ParserVal(yytext()); 
          return Parser.NUM; }
 
-"=="   {  return Parser.EQ; }
-"<="   {  return Parser.LEQ; }
-">="   {  return Parser.GEQ; }
-"!="   {  return Parser.NEQ; }
-
-"&&"   { return Parser.AND; }
-"||"   {  return Parser.OR; }
 
 int    { return Parser.INT;     }
 float  { return Parser.FLOAT;   }

@@ -1,0 +1,25 @@
+int i;
+int j;
+
+void main() {
+   i = 0;
+   
+   while (true) {
+        
+        
+       write(" ");
+       write("i: ", i);
+        
+        if (i>3) break;
+         
+        j = 0;
+        while (j<=6) {
+           j++;
+           if (j < 2 || j > 4) continue;
+           write("   j: ", j);         
+        }
+        
+        i++;
+    }    
+ } 
+
