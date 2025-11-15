@@ -1,25 +1,23 @@
-int i;
-int j;
+int a; 
+int b; 
+int c;
+int ma;
+int me;
 
-void main() {
-   i = 0;
-   
-   while (true) {
-        
-        
-       write(" ");
-       write("i: ", i);
-        
-        if (i>3) break;
-         
-        j = 0;
-        while (j<=6) {
-           j++;
-           if (j < 2 || j > 4) continue;
-           write("   j: ", j);         
-        }
-        
-        i++;
-    }    
- } 
+void main() {  
+    a = b = c = 10;
+
+    ++b;
+    c--;
+
+    me = a<=b && a<=c ? a : b <= c ? b : c; 
+    ma = a>=b && a>=c ? a : b >= c ? b : c;   
+
+    write (" a =  ", a );
+    write (" b =  ", b );
+    write (" c =  ", c );
+    write (" me =  ", me );
+    write (" ma =  ", ma );
+
+}
 

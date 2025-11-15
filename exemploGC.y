@@ -3,79 +3,62 @@
   import java.util.ArrayList;
   import java.util.Stack;
 %}
-
 /* ---------- TOKENS ---------- */
-%token ID INT FLOAT BOOL NUM LIT VOID MAIN READ WRITE IF ELSE
+%token ID INT FLOAT BOOL NUM LIT VOID MAIN READ WRITE IF ELSE DO
 %token WHILE TRUE FALSE
 %token EQ LEQ GEQ NEQ
 %token AND OR
 %token INC DEC
-%token PLUSEQ MINUSEQ MULEQ DIVEQ MODEQ   /* NOVO: atribuições compostas */
-
+%token PLUSEQ MINUSEQ MULEQ DIVEQ MODEQ
 /* ---------- PRECEDÊNCIAS ---------- */
 %right '=' PLUSEQ MINUSEQ MULEQ DIVEQ MODEQ
+%right '?' ':' /* operador condicional */
 %left OR
 %left AND
 %left '>' '<' EQ LEQ GEQ NEQ
 %left '+' '-'
 %left '*' '/' '%'
 %left '!' INC DEC
-
 /* ---------- TIPOS SEMÂNTICOS ---------- */
-%type <sval> ID
-%type <sval> LIT
-%type <sval> NUM
+%type <sval> ID LIT NUM
 %type <ival> type
-
 %%
-
 /* --- PROGRAMA --- */
 prog : { geraInicio(); } dList mainF { geraAreaDados(); geraAreaLiterais(); } ;
-
 /* --- FUNÇÃO MAIN --- */
 mainF : VOID MAIN '(' ')' { System.out.println("_start:"); }
-        '{' lcmd { geraFinal(); } '}'
-         ;
-
+        '{' lcmd { geraFinal(); } '}' ;
 /* --- DECLARAÇÕES --- */
 dList : decl dList | ;
-decl : type ID ';' { 
-                     TS_entry nodo = ts.pesquisa($2);
-                     if (nodo != null)
-                            yyerror("(sem) variavel >" + $2 + "< jah declarada");
-                        else ts.insert(new TS_entry($2, $1)); 
-                   }
-      ;
-
-type : INT   { $$ = INT; }
+decl : type ID ';' {
+         TS_entry nodo = ts.pesquisa($2);
+         if (nodo != null)
+             yyerror("(sem) variavel >" + $2 + "< jah declarada");
+         else ts.insert(new TS_entry($2, $1));
+       } ;
+type : INT { $$ = INT; }
      | FLOAT { $$ = FLOAT; }
-     | BOOL  { $$ = BOOL; }
-     ;
-
+     | BOOL { $$ = BOOL; } ;
 /* --- COMANDOS --- */
-lcmd : lcmd cmd
-     |
-     ;
-
+lcmd : lcmd cmd | ;
 cmd : exp ';'
-    | WRITE '(' LIT ')' ';' { 
-          strTab.add($3);
-          System.out.println("\tMOVL $_str_"+strCount+"Len, %EDX");
-          System.out.println("\tMOVL $_str_"+strCount+", %ECX");
-          System.out.println("\tCALL _writeLit");
-          System.out.println("\tCALL _writeln");
-          strCount++;
-      }
-    | WRITE '(' LIT { 
+    | WRITE '(' LIT ',' exp ')' ';' {
           strTab.add($3);
           System.out.println("\tMOVL $_str_"+strCount+"Len, %EDX");
           System.out.println("\tMOVL $_str_"+strCount+", %ECX");
           System.out.println("\tCALL _writeLit");
           strCount++;
-      } ',' exp ')' ';' {
           System.out.println("\tPOPL %EAX");
           System.out.println("\tCALL _write");
           System.out.println("\tCALL _writeln");
+      }
+    | WRITE '(' LIT ')' ';' {
+          strTab.add($3);
+          System.out.println("\tMOVL $_str_"+strCount+"Len, %EDX");
+          System.out.println("\tMOVL $_str_"+strCount+", %ECX");
+          System.out.println("\tCALL _writeLit");
+          System.out.println("\tCALL _writeln");
+          strCount++;
       }
     | READ '(' ID ')' ';' {
           System.out.println("\tPUSHL $_"+$3);
@@ -95,6 +78,15 @@ cmd : exp ';'
           System.out.printf("rot_%02d:\n", pRot.peek() + 1);
           pRot.pop();
       }
+    | DO {
+          pRot.push(proxRot); proxRot += 1;
+          System.out.printf("rot_%02d:\n", pRot.peek());
+      } cmd WHILE '(' exp ')' ';' {
+          System.out.println("\tPOPL %EAX");
+          System.out.println("\tCMPL $0, %EAX");
+          System.out.printf("\tJNE rot_%02d\n", pRot.peek());
+          pRot.pop();
+      }
     | IF '(' exp {
           pRot.push(proxRot); proxRot += 2;
           System.out.println("\tPOPL %EAX");
@@ -104,8 +96,8 @@ cmd : exp ';'
           System.out.printf("rot_%02d:\n", pRot.peek() + 1);
           pRot.pop();
       }
+    | '{' lcmd '}'
     ;
-
 restoIf : ELSE {
           System.out.printf("\tJMP rot_%02d\n", pRot.peek() + 1);
           System.out.printf("rot_%02d:\n", pRot.peek());
@@ -115,33 +107,8 @@ restoIf : ELSE {
           System.out.printf("rot_%02d:\n", pRot.peek());
       }
       ;
-
-/* --- LVALUE (endereço da variável) --- */
-lvalue : ID {
-            System.out.println("\tPUSHL $_"+$1);
-         }
-       | ID INC {  /* PÓS-INCREMENTO */
-            System.out.println("\tPUSHL _"+$1);
-            System.out.println("\tPUSHL $_"+$1);
-            System.out.println("\tPOPL %EDX");
-            System.out.println("\tPOPL %EAX");
-            System.out.println("\tADDL $1, %EAX");
-            System.out.println("\tMOVL %EAX, (%EDX)");
-            System.out.println("\tSUBL $1, %EAX");
-            System.out.println("\tPUSHL %EAX");
-         }
-       | ID DEC {  /* PÓS-DECREMENTO */
-            System.out.println("\tPUSHL _"+$1);
-            System.out.println("\tPUSHL $_"+$1);
-            System.out.println("\tPOPL %EDX");
-            System.out.println("\tPOPL %EAX");
-            System.out.println("\tSUBL $1, %EAX");
-            System.out.println("\tMOVL %EAX, (%EDX)");
-            System.out.println("\tADDL $1, %EAX");
-            System.out.println("\tPUSHL %EAX");
-         }
-       ;
-
+/* --- LVALUE (apenas endereço) --- */
+lvalue : ID { System.out.println("\tPUSHL $_"+$1); } ;
 /* --- EXPRESSÕES --- */
 exp : NUM { System.out.println("\tPUSHL $"+$1); }
     | TRUE { System.out.println("\tPUSHL $1"); }
@@ -149,186 +116,195 @@ exp : NUM { System.out.println("\tPUSHL $"+$1); }
     | ID { System.out.println("\tPUSHL _"+$1); }
     | '(' exp ')'
     | '!' exp { gcExpNot(); }
-
     /* PRÉ-INCREMENTO */
     | INC ID {
-            System.out.println("\tPUSHL $_"+$2);
-            System.out.println("\tPOPL %EDX");
-            System.out.println("\tMOVL (%EDX), %EAX");
-            System.out.println("\tADDL $1, %EAX");
-            System.out.println("\tMOVL %EAX, (%EDX)");
-            System.out.println("\tPUSHL %EAX");
-         }
-
+          System.out.println("\tPUSHL $_"+$2);
+          System.out.println("\tPOPL %EDX");
+          System.out.println("\tMOVL (%EDX), %EAX");
+          System.out.println("\tADDL $1, %EAX");
+          System.out.println("\tMOVL %EAX, (%EDX)");
+          System.out.println("\tPUSHL %EAX");
+      }
     /* PRÉ-DECREMENTO */
     | DEC ID {
-            System.out.println("\tPUSHL $_"+$2);
-            System.out.println("\tPOPL %EDX");
-            System.out.println("\tMOVL (%EDX), %EAX");
-            System.out.println("\tSUBL $1, %EAX");
-            System.out.println("\tMOVL %EAX, (%EDX)");
-            System.out.println("\tPUSHL %EAX");
-         }
-
+          System.out.println("\tPUSHL $_"+$2);
+          System.out.println("\tPOPL %EDX");
+          System.out.println("\tMOVL (%EDX), %EAX");
+          System.out.println("\tSUBL $1, %EAX");
+          System.out.println("\tMOVL %EAX, (%EDX)");
+          System.out.println("\tPUSHL %EAX");
+      }
+    /* PÓS-INCREMENTO */
+    | ID INC {
+          System.out.println("\tPUSHL _"+$1);
+          System.out.println("\tPUSHL $_"+$1);
+          System.out.println("\tPOPL %EDX");
+          System.out.println("\tPOPL %EAX");
+          System.out.println("\tADDL $1, %EAX");
+          System.out.println("\tMOVL %EAX, (%EDX)");
+          System.out.println("\tSUBL $1, %EAX");
+          System.out.println("\tPUSHL %EAX");
+      }
+    /* PÓS-DECREMENTO */
+    | ID DEC {
+          System.out.println("\tPUSHL _"+$1);
+          System.out.println("\tPUSHL $_"+$1);
+          System.out.println("\tPOPL %EDX");
+          System.out.println("\tPOPL %EAX");
+          System.out.println("\tSUBL $1, %EAX");
+          System.out.println("\tMOVL %EAX, (%EDX)");
+          System.out.println("\tADDL $1, %EAX");
+          System.out.println("\tPUSHL %EAX");
+      }
     /* ATRIBUIÇÃO SIMPLES */
     | lvalue '=' exp {
-            System.out.println("\tPOPL %EAX");
-            System.out.println("\tPOPL %EDX");
-            System.out.println("\tMOVL %EAX, (%EDX)");
-            System.out.println("\tPUSHL %EAX");
-         }
-
+          System.out.println("\tPOPL %EAX");
+          System.out.println("\tPOPL %EDX");
+          System.out.println("\tMOVL %EAX, (%EDX)");
+          System.out.println("\tPUSHL %EAX");
+      }
     /* ATRIBUIÇÕES COMPOSTAS */
     | lvalue PLUSEQ exp {
-            System.out.println("\tPOPL %EAX");           /* valor */
-            System.out.println("\tPOPL %EDX");           /* endereço */
-            System.out.println("\tADDL (%EDX), %EAX");   /* EAX = *addr + valor */
-            System.out.println("\tMOVL %EAX, (%EDX)");
-            System.out.println("\tPUSHL %EAX");
-         }
+          System.out.println("\tPOPL %EAX");
+          System.out.println("\tPOPL %EDX");
+          System.out.println("\tADDL (%EDX), %EAX");
+          System.out.println("\tMOVL %EAX, (%EDX)");
+          System.out.println("\tPUSHL %EAX");
+      }
     | lvalue MINUSEQ exp {
-            System.out.println("\tPOPL %EAX");
-            System.out.println("\tPOPL %EDX");
-            System.out.println("\tMOVL (%EDX), %EBX");
-            System.out.println("\tSUBL %EAX, %EBX");
-            System.out.println("\tMOVL %EBX, (%EDX)");
-            System.out.println("\tPUSHL %EBX");
-         }
+          System.out.println("\tPOPL %EAX");
+          System.out.println("\tPOPL %EDX");
+          System.out.println("\tMOVL (%EDX), %EBX");
+          System.out.println("\tSUBL %EAX, %EBX");
+          System.out.println("\tMOVL %EBX, (%EDX)");
+          System.out.println("\tPUSHL %EBX");
+      }
     | lvalue MULEQ exp {
-            System.out.println("\tPOPL %EAX");
-            System.out.println("\tPOPL %EDX");
-            System.out.println("\tMOVL (%EDX), %EBX");
-            System.out.println("\tIMULL %EAX, %EBX");
-            System.out.println("\tMOVL %EBX, (%EDX)");
-            System.out.println("\tPUSHL %EBX");
-         }
+          System.out.println("\tPOPL %EAX");
+          System.out.println("\tPOPL %EDX");
+          System.out.println("\tMOVL (%EDX), %EBX");
+          System.out.println("\tIMULL %EAX, %EBX");
+          System.out.println("\tMOVL %EBX, (%EDX)");
+          System.out.println("\tPUSHL %EBX");
+      }
     | lvalue DIVEQ exp {
-            System.out.println("\tPOPL %ECX");           /* divisor */
-            System.out.println("\tPOPL %EDX");           /* endereço */
-            System.out.println("\tMOVL (%EDX), %EAX");    /* dividendo */
-            System.out.println("\tMOVL $0, %EDX");
-            System.out.println("\tIDIVL %ECX");
-            System.out.println("\tMOVL %EAX, (%EDX)");
-            System.out.println("\tPUSHL %EAX");
-         }
+          System.out.println("\tPOPL %ECX");
+          System.out.println("\tPOPL %EDX");
+          System.out.println("\tMOVL (%EDX), %EAX");
+          System.out.println("\tMOVL $0, %EDX");
+          System.out.println("\tIDIVL %ECX");
+          System.out.println("\tMOVL %EAX, (%EDX)");
+          System.out.println("\tPUSHL %EAX");
+      }
     | lvalue MODEQ exp {
-            System.out.println("\tPOPL %ECX");
-            System.out.println("\tPOPL %EDX");
-            System.out.println("\tMOVL (%EDX), %EAX");
-            System.out.println("\tMOVL $0, %EDX");
-            System.out.println("\tIDIVL %ECX");
-            System.out.println("\tMOVL %EDX, %EAX");
-            System.out.println("\tMOVL %EAX, (%EDX)");
-            System.out.println("\tPUSHL %EAX");
-         }
-
+          System.out.println("\tPOPL %ECX");
+          System.out.println("\tPOPL %EDX");
+          System.out.println("\tMOVL (%EDX), %EAX");
+          System.out.println("\tMOVL $0, %EDX");
+          System.out.println("\tIDIVL %ECX");
+          System.out.println("\tMOVL %EDX, %EAX");
+          System.out.println("\tMOVL %EAX, (%EDX)");
+          System.out.println("\tPUSHL %EAX");
+      }
+    /* OPERADOR CONDICIONAL */
+    | exp '?' exp ':' exp {
+          System.out.println("\tPOPL %EAX"); // exp_false
+          System.out.println("\tPOPL %EBX"); // exp_true
+          System.out.println("\tPOPL %ECX"); // cond
+          System.out.println("\tCMPL $0, %ECX");
+          pRot.push(proxRot); proxRot += 2;
+          System.out.printf("\tJE rot_%02d\n", pRot.peek());
+          System.out.println("\tMOVL %EBX, %EAX");
+          System.out.printf("\tJMP rot_%02d\n", pRot.peek() + 1);
+          System.out.printf("rot_%02d:\n", pRot.peek());
+          System.out.println("\tMOVL %EAX, %EAX");
+          System.out.printf("rot_%02d:\n", pRot.peek() + 1);
+          pRot.pop();
+          System.out.println("\tPUSHL %EAX");
+      }
     /* OPERAÇÕES ARITMÉTICAS */
     | exp '+' exp { gcExpArit('+'); }
     | exp '-' exp { gcExpArit('-'); }
     | exp '*' exp { gcExpArit('*'); }
     | exp '/' exp { gcExpArit('/'); }
     | exp '%' exp { gcExpArit('%'); }
-
     /* RELACIONAIS */
     | exp '>' exp { gcExpRel('>'); }
     | exp '<' exp { gcExpRel('<'); }
-    | exp EQ exp  { gcExpRel(EQ); }
+    | exp EQ exp { gcExpRel(EQ); }
     | exp LEQ exp { gcExpRel(LEQ); }
     | exp GEQ exp { gcExpRel(GEQ); }
     | exp NEQ exp { gcExpRel(NEQ); }
-
     /* LÓGICAS */
-    | exp OR exp  { gcExpLog(OR); }
+    | exp OR exp { gcExpLog(OR); }
     | exp AND exp { gcExpLog(AND); }
     ;
-
 %%
-
-  /* ---------- ATRIBUTOS E MÉTODOS JAVA ---------- */
-  private Yylex lexer;
-  private TabSimb ts = new TabSimb();
-  private int strCount = 0;
-  private ArrayList<String> strTab = new ArrayList<String>();
-  private Stack<Integer> pRot = new Stack<Integer>();
-  private int proxRot = 1;
-  public static int ARRAY = 100;
-
-  private int yylex () {
-    int yyl_return = -1;
+/* ---------- ATRIBUTOS E MÉTODOS JAVA ---------- */
+private Yylex lexer;
+private TabSimb ts = new TabSimb();
+private int strCount = 0;
+private ArrayList<String> strTab = new ArrayList<>();
+private Stack<Integer> pRot = new Stack<>();
+private int proxRot = 1;
+private int yylex() {
+    int ret;
     try {
-      yylval = new ParserVal(0);
-      yyl_return = lexer.yylex();
+        yylval = new ParserVal(0);
+        ret = lexer.yylex();
+    } catch (IOException e) {
+        System.err.println("IO error: " + e);
+        ret = -1;
     }
-    catch (IOException e) {
-      System.err.println("IO error :"+e);
-    }
-    return yyl_return;
-  }
-
-  public void yyerror (String error) {
-    System.err.println ("Error: " + error + " linha: " + lexer.getLine());
-  }
-
-  public Parser(Reader r) {
+    return ret;
+}
+public void yyerror(String s) {
+    System.err.println("Error: " + s + " linha: " + lexer.getLine());
+}
+public Parser(Reader r) {
     lexer = new Yylex(r, this);
-  }
-
-  public void setDebug(boolean debug) {
-    yydebug = debug;
-  }
-
-  public void listarTS() { ts.listar(); }
-
-  public static void main(String args[]) throws IOException {
-    Parser yyparser;
-    if ( args.length > 0 ) {
-      yyparser = new Parser(new FileReader(args[0]));
-      yyparser.yyparse();
+}
+public void setDebug(boolean d) { yydebug = d; }
+public void listarTS() { ts.listar(); }
+public static void main(String[] args) throws IOException {
+    if (args.length > 0) {
+        new Parser(new FileReader(args[0])).yyparse();
+    } else {
+        System.out.println("Uso: java Parser arquivo.cmm > arquivo.s");
     }
-    else {
-      System.out.println("\n\tFormato: java Parser entrada.cmm >entrada.s\n");
-    }
-  }
-
-  /* ---------- GERAÇÃO DE CÓDIGO ---------- */
-
-  void gcExpArit(int oparit) {
+}
+/* ---------- GERAÇÃO DE CÓDIGO ---------- */
+void gcExpArit(int op) {
     System.out.println("\tPOPL %EBX");
     System.out.println("\tPOPL %EAX");
-    switch (oparit) {
-      case '+' : System.out.println("\tADDL %EBX, %EAX" ); break;
-      case '-' : System.out.println("\tSUBL %EBX, %EAX" ); break;
-      case '*' : System.out.println("\tIMULL %EBX, %EAX" ); break;
-      case '/':
-                 System.out.println("\tMOVL $0, %EDX");
-                 System.out.println("\tIDIVL %EBX");
-                 break;
-      case '%':
-                 System.out.println("\tMOVL $0, %EDX");
-                 System.out.println("\tIDIVL %EBX");
-                 System.out.println("\tMOVL %EDX, %EAX");
-                 break;
+    switch (op) {
+        case '+': System.out.println("\tADDL %EBX, %EAX"); break;
+        case '-': System.out.println("\tSUBL %EBX, %EAX"); break;
+        case '*': System.out.println("\tIMULL %EBX, %EAX"); break;
+        case '/': case '%':
+            System.out.println("\tMOVL $0, %EDX");
+            System.out.println("\tIDIVL %EBX");
+            if (op == '%') System.out.println("\tMOVL %EDX, %EAX");
+            break;
     }
     System.out.println("\tPUSHL %EAX");
-  }
-
-  public void gcExpRel(int oprel) {
+}
+public void gcExpRel(int op) {
     System.out.println("\tPOPL %EAX");
     System.out.println("\tPOPL %EDX");
     System.out.println("\tCMPL %EAX, %EDX");
     System.out.println("\tMOVL $0, %EAX");
-    switch (oprel) {
-       case '<': System.out.println("\tSETL %AL"); break;
-       case '>': System.out.println("\tSETG %AL"); break;
-       case Parser.EQ: System.out.println("\tSETE %AL"); break;
-       case Parser.GEQ: System.out.println("\tSETGE %AL"); break;
-       case Parser.LEQ: System.out.println("\tSETLE %AL"); break;
-       case Parser.NEQ: System.out.println("\tSETNE %AL"); break;
+    switch (op) {
+        case '<': System.out.println("\tSETL %AL"); break;
+        case '>': System.out.println("\tSETG %AL"); break;
+        case Parser.EQ: System.out.println("\tSETE %AL"); break;
+        case Parser.GEQ: System.out.println("\tSETGE %AL"); break;
+        case Parser.LEQ: System.out.println("\tSETLE %AL"); break;
+        case Parser.NEQ: System.out.println("\tSETNE %AL"); break;
     }
     System.out.println("\tPUSHL %EAX");
-  }
-
-  public void gcExpLog(int oplog) {
+}
+public void gcExpLog(int op) {
     System.out.println("\tPOPL %EDX");
     System.out.println("\tPOPL %EAX");
     System.out.println("\tCMPL $0, %EAX");
@@ -337,37 +313,23 @@ exp : NUM { System.out.println("\tPUSHL $"+$1); }
     System.out.println("\tCMPL $0, %EDX");
     System.out.println("\tMOVL $0, %EDX");
     System.out.println("\tSETNE %DL");
-    switch (oplog) {
-     case Parser.OR:  System.out.println("\tORL %EDX, %EAX"); break;
-     case Parser.AND: System.out.println("\tANDL %EDX, %EAX"); break;
-    }
+    if (op == Parser.OR) System.out.println("\tORL %EDX, %EAX");
+    else System.out.println("\tANDL %EDX, %EAX");
     System.out.println("\tPUSHL %EAX");
-  }
-
-  public void gcExpNot(){
-    System.out.println("\tPOPL %EAX" );
-    System.out.println("\tNEGL %EAX" );
+}
+public void gcExpNot() {
+    System.out.println("\tPOPL %EAX");
+    System.out.println("\tNEGL %EAX");
     System.out.println("\tPUSHL %EAX");
-  }
-
-  private void geraInicio() {
-    System.out.println(".text\n\n#\t nome COMPLETO e matricula dos componentes do grupo...\n#\n");
-    System.out.println(".GLOBL _start\n\n");
-  }
-
-  private void geraFinal(){
-    System.out.println("\n\n");
-    System.out.println("#");
-    System.out.println("# devolve o controle para o SO (final da main)");
-    System.out.println("#");
-    System.out.println("\tmov $0, %ebx");
+}
+private void geraInicio() {
+    System.out.println(".text\n.GLOBL _start\n");
+}
+private void geraFinal() {
+    System.out.println("\n\tmov $0, %ebx");
     System.out.println("\tmov $1, %eax");
-    System.out.println("\tint $0x80");
-    System.out.println("\n");
-    System.out.println("#");
-    System.out.println("# Funcoes da biblioteca (IO)");
-    System.out.println("#");
-    System.out.println("\n");
+    System.out.println("\tint $0x80\n");
+    // Biblioteca IO
     System.out.println("_writeln:");
     System.out.println("\tMOVL $__fim_msg, %ECX");
     System.out.println("\tDECL %ECX");
@@ -434,32 +396,16 @@ exp : NUM { System.out.println("\tPUSHL $"+$1); }
     System.out.println("\tNEGL %EAX");
     System.out.println("_fimread2:");
     System.out.println("\tRET");
-    System.out.println("\n");
-  }
-
-  private void geraAreaDados(){
-    System.out.println("");
-    System.out.println("#");
-    System.out.println("# area de dados");
-    System.out.println("#");
+}
+private void geraAreaDados() {
     System.out.println(".data");
-    System.out.println("#");
-    System.out.println("# variaveis globais");
-    System.out.println("#");
     ts.geraGlobais();
-    System.out.println("");
-  }
-
-  private void geraAreaLiterais() {
-    System.out.println("#\n# area de literais\n#");
-    System.out.println("__msg:");
-    System.out.println("\t.zero 30");
-    System.out.println("__fim_msg:");
-    System.out.println("\t.byte 0");
-    System.out.println("\n");
+}
+private void geraAreaLiterais() {
+    System.out.println("__msg:\t.zero 30");
+    System.out.println("__fim_msg:\t.byte 0\n");
     for (int i = 0; i < strTab.size(); i++) {
-      System.out.println("_str_"+i+":");
-      System.out.println("\t.ascii \"" + strTab.get(i) + "\"");
-      System.out.println("_str_"+i+"Len = . - _str_"+i);
+        System.out.printf("_str_%d:\t.ascii \"%s\"\n", i, strTab.get(i));
+        System.out.printf("_str_%dLen = . - _str_%d\n", i, i);
     }
-  }
+}

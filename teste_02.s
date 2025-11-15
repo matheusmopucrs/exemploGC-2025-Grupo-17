@@ -1,10 +1,5 @@
 .text
-
-#	 nome COMPLETO e matricula dos componentes do grupo...
-#
-
 .GLOBL _start
-
 
 _start:
 	PUSHL $_a
@@ -42,24 +37,24 @@ _start:
 	ADDL (%EDX), %EAX
 	MOVL %EAX, (%EDX)
 	PUSHL %EAX
+	PUSHL _a
 	MOVL $_str_0Len, %EDX
 	MOVL $_str_0, %ECX
 	CALL _writeLit
-	PUSHL _a
 	POPL %EAX
 	CALL _write
 	CALL _writeln
+	PUSHL _b
 	MOVL $_str_1Len, %EDX
 	MOVL $_str_1, %ECX
 	CALL _writeLit
-	PUSHL _b
 	POPL %EAX
 	CALL _write
 	CALL _writeln
+	PUSHL _c
 	MOVL $_str_2Len, %EDX
 	MOVL $_str_2, %ECX
 	CALL _writeLit
-	PUSHL _c
 	POPL %EAX
 	CALL _write
 	CALL _writeln
@@ -88,42 +83,31 @@ _start:
 	MOVL $_str_3, %ECX
 	CALL _writeLit
 	CALL _writeln
+	PUSHL _a
 	MOVL $_str_4Len, %EDX
 	MOVL $_str_4, %ECX
 	CALL _writeLit
-	PUSHL _a
 	POPL %EAX
 	CALL _write
 	CALL _writeln
+	PUSHL _b
 	MOVL $_str_5Len, %EDX
 	MOVL $_str_5, %ECX
 	CALL _writeLit
-	PUSHL _b
 	POPL %EAX
 	CALL _write
 	CALL _writeln
+	PUSHL _c
 	MOVL $_str_6Len, %EDX
 	MOVL $_str_6, %ECX
 	CALL _writeLit
-	PUSHL _c
 	POPL %EAX
 	CALL _write
 	CALL _writeln
 
-
-
-#
-# devolve o controle para o SO (final da main)
-#
 	mov $0, %ebx
 	mov $1, %eax
 	int $0x80
-
-
-#
-# Funcoes da biblioteca (IO)
-#
-
 
 _writeln:
 	MOVL $__fim_msg, %ECX
@@ -191,47 +175,24 @@ _fimread:
 	NEGL %EAX
 _fimread2:
 	RET
-
-
-
-#
-# area de dados
-#
 .data
-#
-# variaveis globais
-#
 _a:	.zero 4
 _b:	.zero 4
 _c:	.zero 4
+__msg:	.zero 30
+__fim_msg:	.byte 0
 
-#
-# area de literais
-#
-__msg:
-	.zero 30
-__fim_msg:
-	.byte 0
-
-
-_str_0:
-	.ascii " a =  "
+_str_0:	.ascii " a =  "
 _str_0Len = . - _str_0
-_str_1:
-	.ascii " b =  "
+_str_1:	.ascii " b =  "
 _str_1Len = . - _str_1
-_str_2:
-	.ascii " c =  "
+_str_2:	.ascii " c =  "
 _str_2Len = . - _str_2
-_str_3:
-	.ascii " "
+_str_3:	.ascii " "
 _str_3Len = . - _str_3
-_str_4:
-	.ascii " a =  "
+_str_4:	.ascii " a =  "
 _str_4Len = . - _str_4
-_str_5:
-	.ascii " b =  "
+_str_5:	.ascii " b =  "
 _str_5Len = . - _str_5
-_str_6:
-	.ascii " c =  "
+_str_6:	.ascii " c =  "
 _str_6Len = . - _str_6
